@@ -21,13 +21,11 @@ import (
 2 运行超时
 3 运行出错
 4 未知错误
- */
+*/
 
 //export judgeCode
 func judgeCode(filePath, outputPath, fileName string, data string) *C.char {
-
 	println("文件路径为 "+filePath, "文件输出路径为"+outputPath, "文件名为", fileName, "data ", data)
-
 	result := make(chan string)
 	// 系统是否安装有 gcc 环境
 	_, i := exec.LookPath("gcc")
@@ -117,7 +115,7 @@ func judge(outputPath, fileName string, result chan string) {
 
 	go runCode(outputPath, fileName, result)
 	// 程序运行时间
-	for ; ; {
+	for {
 		cur := time.Now().Unix()
 		if cur-start >= 2 {
 			// 杀死进程
@@ -131,7 +129,7 @@ func judge(outputPath, fileName string, result chan string) {
 
 /*
 	代码运行
- */
+*/
 func runCode(outputPath, fileName string, result chan string) {
 	println("程序准备运行")
 	bytes, e := exec.Command(outputPath + "/" + fileName).Output()
