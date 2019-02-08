@@ -6,8 +6,9 @@
 
 主要用于 基于 C/C++ 的数据结构使用。
 
-项目采用 Go 语言编写,最后编译为 so , 使其他语言进行调用。
+通过一天对 go 语言的学习，照猫画虎的写完了这个测评机。
 
+项目采用 Go 语言编写,最后编译为 so , 使其他语言进行调用。
 
 ## API
 
@@ -25,7 +26,8 @@ judgeCode(GoString filePath,GoString outputPath,GoString fileName,GoString data)
 - data 测评数据
 
 
-**data** 类型是是一个 Json 结构,查看[data.json](./data.json)
+**data** 类型是是一个 Json 结构,查看[data.json](./data.json)。主要为测评数据的输入输出。
+
 
 ```json
 {
@@ -187,3 +189,6 @@ fun main() {
 }
 
 ```
+
+参考：[Java调用Golang生成的动态库（dll,so）](https://studygolang.com/articles/13646)
+
