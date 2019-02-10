@@ -72,10 +72,13 @@ func judgeCode(filePath, outputPath, fileName string, data string, limitTime int
 		go runInWindows(filePath, outputPath, fileName, result, d.Datas, limitTime)
 		break
 	case "linux":
-		runInLinux()
+		runInXnux()
+		break
+	case "macOs":
+		runInXnux()
 		break
 	default:
-		runInMacOs()
+		result <- "还不支持该系统"
 		break
 	}
 
@@ -142,11 +145,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 
 }
 
-func runInLinux() {
-
-}
-
-func runInMacOs() {
+func runInXnux() {
 
 }
 
@@ -197,7 +196,7 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 		out := strings.Split(data[i].Output, "[")
 		out = strings.Split(out[1], "]")
 
-		println("第 ", i, "次答案", string(output))
+		println("第 ", i+1, "次答案", string(output))
 		if string(output) == out[0] {
 			flag++
 		}
