@@ -92,7 +92,7 @@ func main() {
 	var outPath = "e:/testData"
 	var fileName = "add"
 
-	code := judgeCode(filePath, outPath, fileName,
+	judgeCode(filePath, outPath, fileName,
 		`{
 	"datas": [
 	  {
@@ -109,7 +109,6 @@ func main() {
 		}
 	]
 	}`, 2)
-	println(code)
 }
 
 /**

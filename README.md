@@ -70,6 +70,10 @@ error 表示错误码
 - 8 部分运行结果错误
 - 9 运行全部通过
 
+### **已知bug**
+
+外部传入 json 格式不正确时，系统不会报错，而且会继续执行，此时运行结果全为正确。
+
 ## 编译
 
 确保本地使用的 gcc 支持系统位数和Go语言位数一致
@@ -183,7 +187,7 @@ fun main() {
     val fileName = GoString.ByValue("HelloWorld")
     //language=JSON
     val data =
-        GoString.ByValue("{\n  \"data\": [\n    {\n      \"input\": \"[1,2]\",\n      \"output\": \"[3]\"\n    },\n    {\n      \"input\": \"[3,6]\",\n      \"output\": \"[9]\"\n    }\n  ]\n}")
+        GoString.ByValue("{\n  \"datas\": [\n    {\n      \"input\": \"[1,2]\",\n      \"output\": \"[3]\"\n    },\n    {\n      \"input\": \"[3,6]\",\n      \"output\": \"[9]\"\n    }\n  ]\n}")
     val result = Capricornus.INSTANCE.judgeCode(filePath, outPath, fileName, data,2)
     println(result)
 }
