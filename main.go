@@ -3,43 +3,73 @@ package main
 import (
 	"C"
 	"bytes"
+	"github.com/json-iterator/go"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
 /**
 魔羯座
-测评机
+@author: 杨晓辉
+
+测评机，提供c语言代码算法测试运行，可以扩展为其他语言
+
 编译命令
 编译为 so
+
 `go build -buildmode=c-shared -o .\out\libCapricornus.so .\main.go`
 
-错误码说明
+code 说明
 0 没有安装 gcc 环境
 1 代码无法进行编译
 2 运行超时
 3 运行出错
 4 未知错误
+5 json格式错误
+
+8 部分运行结果错误
+9 运行全部通过
 */
 
+/**
+已知 [bug]
+1. json 错误不会报错，并且会按照所有的结果都正确进行
+*/
+
+type datas struct {
+	Datas []data
+}
+type data struct {
+	Input  string
+	Output string
+}
+
 //export judgeCode
-func judgeCode(filePath, outputPath, fileName string, data string) *C.char {
-	println("文件路径为 "+filePath, "文件输出路径为"+outputPath, "文件名为", fileName, "data ", data)
+func judgeCode(filePath, outputPath, fileName string, data string, limitTime int64) *C.char {
 	result := make(chan string)
-	// 系统是否安装有 gcc 环境
-	_, i := exec.LookPath("gcc")
-	if i != nil {
-		println("没有安装c语言环境", i.Error())
-		return C.CString("error:0 没有安装 c 语言环境，请安装 gcc")
+	// 解析 json
+	var d datas
+	if err := jsoniter.Unmarshal([]byte(data), &d); err != nil {
+		return C.CString("code:5 json格式错误 " + err.Error())
 	}
+
+	// 系统是否安装有 gcc 环境
+	if _, i := exec.LookPath("gcc"); i != nil {
+		println("没有安装c语言环境", i.Error())
+		return C.CString("code:0 没有安装 c 语言环境，请安装 gcc ")
+	}
+
 	// 获取系统信息
 	osName := runtime.GOOS
+
 	println("os is", osName)
+
 	println("准备开始编译 C 语言")
 	switch osName {
 	case "windows":
-		go runInWindows(filePath, outputPath, fileName, result)
+		go runInWindows(filePath, outputPath, fileName, result, d.Datas, limitTime)
 		break
 	case "linux":
 		runInLinux()
@@ -58,17 +88,34 @@ func judgeCode(filePath, outputPath, fileName string, data string) *C.char {
 }
 
 func main() {
-	//var filePath = "e:/testData/Hello.cpp"
-	//var outPath = "e:/testData"
-	//var fileName = "hello"
-	//
-	//judgeCode(filePath, outPath, fileName, "")
+	var filePath = "e:/testData/Add.cpp"
+	var outPath = "e:/testData"
+	var fileName = "add"
+
+	code := judgeCode(filePath, outPath, fileName,
+		`{
+	"datas": [
+	  {
+	    	"input": "[1,2]"
+	    	"output": "[4]"
+	  },
+	  {
+	    	"input": "[3,6]",
+			"output": "[9]"
+	  },
+		{
+			"input":"[4,6]",
+			"output":"[10]"
+		}
+	]
+	}`, 2)
+	println(code)
 }
 
 /**
  * 在 windows 下编译c语言
  */
-func runInWindows(filePath, outputPath, fileName string, result chan string) {
+func runInWindows(filePath, outputPath, fileName string, result chan string, data []data, limitTime int64) {
 	// gcc -Wall e:/testData/Hello.cpp -o ollcode
 	// 错误检查
 	println("检查编译问题")
@@ -77,14 +124,14 @@ func runInWindows(filePath, outputPath, fileName string, result chan string) {
 	w := bytes.NewBuffer(nil)
 	cmd.Stderr = w
 	_ = cmd.Run()
+	// 代码错误
 	if len(w.Bytes()) != 0 {
-		result <- "error:1 " + string(w.Bytes())
+		result <- "code:1 " + string(w.Bytes())
 	}
 	println(string(w.Bytes()))
 	// 编译 c 语言文件
 	_, e := exec.Command("cmd", "/C", "gcc -g -o "+outputPath+"\\"+fileName+" "+filePath).Output()
 	// 异常处理
-
 	if e != nil {
 		// 无法编译
 		result <- string("err:4 " + e.Error())
@@ -92,7 +139,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string) {
 	println("程序编译完成")
 	// 运行 c 语言
 	//开启协程
-	go judge(outputPath, fileName, result)
+	go judge(outputPath, fileName, result, data, limitTime)
 
 }
 
@@ -106,23 +153,22 @@ func runInMacOs() {
 
 /**
  * 代码运行
- */
-func judge(outputPath, fileName string, result chan string) {
-	//var i1 = ""
+	将数据进行传输
+*/
+func judge(outputPath, fileName string, result chan string, data []data, limitTime int64) {
 
 	// 程序开始时间
 	start := time.Now().Unix()
-
-	go runCode(outputPath, fileName, result)
+	go runCode(outputPath, fileName, result, data)
 	// 程序运行时间
 	for {
 		cur := time.Now().Unix()
-		if cur-start >= 2 {
+		if cur-start >= limitTime {
 			// 杀死进程
 			// windows
 			process := fileName + ".exe"
 			_ = exec.Command("cmd", "/C", "taskkill /F /IM "+process).Run()
-			result <- "error:2 运行超时"
+			result <- "code:2 运行超时"
 		}
 	}
 }
@@ -130,11 +176,39 @@ func judge(outputPath, fileName string, result chan string) {
 /*
 	代码运行
 */
-func runCode(outputPath, fileName string, result chan string) {
+func runCode(outputPath, fileName string, result chan string, data []data) {
 	println("程序准备运行")
-	bytes, e := exec.Command(outputPath + "/" + fileName).Output()
-	if e != nil {
-		println("error:3 " + e.Error())
+	var flag = 0
+	for i := 0; i < len(data); i++ {
+		sub := strings.Split(data[i].Input, "[")
+		sub = strings.Split(sub[1], "]")
+		sub = strings.Split(sub[0], ",")
+		// 拼接参数
+		var args string
+		for i := 0; i < len(sub); i++ {
+			args += sub[i] + " "
+		}
+		cmd := exec.Command(outputPath + "/" + fileName)
+		cmd.Stdin = strings.NewReader(args)
+		output, e := cmd.Output()
+		if e != nil {
+			result <- string("code:3 " + e.Error())
+		}
+		// 输出获取
+		out := strings.Split(data[i].Output, "[")
+		out = strings.Split(out[1], "]")
+
+		println("第 ", i, "次答案", string(output))
+		if string(output) == out[0] {
+			flag++
+		}
 	}
-	result <- string(bytes)
+	if flag == len(data) {
+		result <- string("code:9 运行完美")
+	} else if flag > 0 && flag < len(data) {
+		result <- string("code:8 部分答案错误 正确数量为") + string(flag) + "/" + string(len(data))
+	} else {
+		result <- string("code:3 运行出错")
+	}
+
 }

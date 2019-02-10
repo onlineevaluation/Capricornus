@@ -15,7 +15,7 @@
 ### 接口
 
 ```c
-judgeCode(GoString filePath,GoString outputPath,GoString fileName,GoString data):String
+judgeCode(GoString filePath,GoString outputPath,GoString fileName,GoString data,int limitTime):String
 ```
 
 ### 参数说明
@@ -24,7 +24,7 @@ judgeCode(GoString filePath,GoString outputPath,GoString fileName,GoString data)
 - outputPath 输出路径
 - fileName 输出文件名称
 - data 测评数据
-
+- limitTime 运行限制时间
 
 **data** 类型是是一个 Json 结构,查看[data.json](./data.json)。主要为测评数据的输入输出。
 
@@ -62,10 +62,13 @@ error 表示错误码
 错误码说明
 
 - 0 没有安装 gcc 环境
-- 1 代码无法进行编译 包含错误信息
+- 1 代码无法进行编译
 - 2 运行超时
 - 3 运行出错
 - 4 未知错误
+- 5 json格式错误
+- 8 部分运行结果错误
+- 9 运行全部通过
 
 ## 编译
 
@@ -98,22 +101,29 @@ JNA Github 地址 [https://github.com/java-native-access/jna](https://github.com
 ```kotlin
 interface Capricornus : Library {
 
+    /**
+     * @param filePath 要编译的文件路径
+     * @param outputPath 输入文件路径
+     * @param fileName 输出文件名称
+     * @param data 输入输出数据 json 格式文件
+     * @param limitTime 程序运行限制时间
+     */
     fun judgeCode(
         filePath: GoString.ByValue,
         outputPath: GoString.ByValue,
         fileName: GoString.ByValue,
-        data:GoString.ByValue
+        data: GoString.ByValue,
+        limitTime: Int
     ): String
 
 
-
-    fun add(a: Int, b: Int): Int
 
     companion object {
         val INSTANCE =
             Native.load("C:\\Users\\young\\Desktop\\native\\cmder\\dll\\libCapricornus.so", Capricornus::class.java)!!
     }
 }
+
 
 ```
 
@@ -174,20 +184,9 @@ fun main() {
     //language=JSON
     val data =
         GoString.ByValue("{\n  \"data\": [\n    {\n      \"input\": \"[1,2]\",\n      \"output\": \"[3]\"\n    },\n    {\n      \"input\": \"[3,6]\",\n      \"output\": \"[9]\"\n    }\n  ]\n}")
-    val result = Capricornus.INSTANCE.judgeCode(filePath, outPath, fileName, data)
-    val errorCode = result.substring(6, 7)
-    val message = when (errorCode) {
-        "0" -> "没有安装 Gcc 环境"
-        "1" -> "代码语法错误，无法进行编译"
-        "2" -> "代码运行超时"
-        "3" -> "代码运行错误"
-        else -> {
-            "未知错误"
-        }
-    }
-    println(message)
+    val result = Capricornus.INSTANCE.judgeCode(filePath, outPath, fileName, data,2)
+    println(result)
 }
-
 ```
 
 参考：[Java调用Golang生成的动态库（dll,so）](https://studygolang.com/articles/13646)
