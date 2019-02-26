@@ -16,11 +16,14 @@ import (
 
 测评机，提供c语言代码算法测试运行，可以扩展为其他语言
 
+os:
+	- windows 10
+
 编译命令
 编译为 so
-
+------------------------------------------------------------------------------------------------------------------------
 `go build -buildmode=c-shared -o .\out\libCapricornus.so .\main.go`
-
+------------------------------------------------------------------------------------------------------------------------
 code 说明
 0 没有安装 gcc 环境
 1 代码无法进行编译
@@ -52,6 +55,7 @@ func judgeCode(filePath, outputPath, fileName string, data string, limitTime int
 	// 解析 json
 	var d datas
 	if err := jsoniter.Unmarshal([]byte(data), &d); err != nil {
+		println("json 格式错误")
 		return C.CString("code:5 json格式错误 " + err.Error())
 	}
 
@@ -96,22 +100,7 @@ func main() {
 	var fileName = "add"
 
 	judgeCode(filePath, outPath, fileName,
-		`{
-	"datas": [
-	  {
-	    	"input": "[1,2]"
-	    	"output": "[4]"
-	  },
-	  {
-	    	"input": "[3,6]",
-			"output": "[9]"
-	  },
-		{
-			"input":"[4,6]",
-			"output":"[10]"
-		}
-	]
-	}`, 2)
+		`{"datas": [{"input": "【1,2】","output": "【4】"},{"input": "【3,6】","output": "【9】"},{"input":"【4,6】","output":"【10】"}]}`, 2)
 }
 
 /**
@@ -122,6 +111,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 	// 错误检查
 	println("检查编译问题")
 	cmdLine := "gcc -pedantic " + filePath + " -o " + fileName
+	// 这里使用 powershell ,否者无法获取错误信息
 	cmd := exec.Command("powershell", "/C ", cmdLine)
 	w := bytes.NewBuffer(nil)
 	cmd.Stderr = w
@@ -178,8 +168,8 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 	println("程序准备运行")
 	var flag = 0
 	for i := 0; i < len(data); i++ {
-		sub := strings.Split(data[i].Input, "[")
-		sub = strings.Split(sub[1], "]")
+		sub := strings.Split(data[i].Input, "【")
+		sub = strings.Split(sub[1], "】")
 		sub = strings.Split(sub[0], ",")
 		// 拼接参数
 		var args string
@@ -193,8 +183,8 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 			result <- string("code:3 " + e.Error())
 		}
 		// 输出获取
-		out := strings.Split(data[i].Output, "[")
-		out = strings.Split(out[1], "]")
+		out := strings.Split(data[i].Output, "【")
+		out = strings.Split(out[1], "】")
 
 		println("第 ", i+1, "次答案", string(output))
 		if string(output) == out[0] {
