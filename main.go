@@ -3,6 +3,8 @@ package main
 import (
 	"C"
 	"bytes"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/json-iterator/go"
 	"os/exec"
 	"runtime"
@@ -36,11 +38,6 @@ code 说明
 9 运行全部通过
 */
 
-/**
-已知 [bug]
-1. json 错误不会报错，并且会按照所有的结果都正确进行
-*/
-
 type datas struct {
 	Datas []data
 }
@@ -51,11 +48,17 @@ type data struct {
 
 //export judgeCode
 func judgeCode(filePath, outputPath, fileName string, data string, limitTime int64) *C.char {
+	db, e := sql.Open("mysql", "root:1234@tcp(localhost:3306)/eva?charset=utf8")
+	if e != nil {
+		println("数据库错误")
+	}
+	defer db.Close()
+
 	result := make(chan string)
 	// 解析 json
 	var d datas
 	if err := jsoniter.Unmarshal([]byte(data), &d); err != nil {
-		println("json 格式错误")
+		println("json 格式错误 " + data)
 		return C.CString("code:5 json格式错误 " + err.Error())
 	}
 
@@ -98,9 +101,9 @@ func main() {
 	var filePath = "e:/testData/Add.cpp"
 	var outPath = "e:/testData"
 	var fileName = "add"
-
+	// {"datas":[{"input":"【0,4%$#","output":"【4%$#"},{"input":"【1,4%$#","output":"【5%$#"},{"input":"【2,4%$#","output":"【6%$#"},{"input":"【3,4%$#","output":"【7%$#"}]}
 	judgeCode(filePath, outPath, fileName,
-		`{"datas": [{"input": "【1,2】","output": "【4】"},{"input": "【3,6】","output": "【9】"},{"input":"【4,6】","output":"【10】"}]}`, 2)
+		`{"datas":[{"input":"#$%0,4%$#","output":"#$%4%$#"},{"input":"#$%1,4%$#","output":"#$%5%$#"},{"input":"#$%2,4%$#","output":"#$%6%$#"},{"input":"#$%3,4%$#","output":"#$%7%$#"}]}`, 2)
 }
 
 /**
@@ -110,7 +113,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 	// gcc -Wall e:/testData/Hello.cpp -o ollcode
 	// 错误检查
 	println("检查编译问题")
-	cmdLine := "gcc -pedantic " + filePath + " -o " + fileName
+	cmdLine := "gcc -pedantic " + filePath + " -o " + outputPath + "\\" + fileName + " "
 	// 这里使用 powershell ,否者无法获取错误信息
 	cmd := exec.Command("powershell", "/C ", cmdLine)
 	w := bytes.NewBuffer(nil)
@@ -124,8 +127,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 	// 编译 c 语言文件
 	_, e := exec.Command("cmd", "/C", "gcc -g -o "+outputPath+"\\"+fileName+" "+filePath).Output()
 	// 异常处理
-	if e != nil {
-		// 无法编译
+	if e != nil { // 无法编译
 		result <- string("err:4 " + e.Error())
 	}
 	println("程序编译完成")
@@ -168,8 +170,8 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 	println("程序准备运行")
 	var flag = 0
 	for i := 0; i < len(data); i++ {
-		sub := strings.Split(data[i].Input, "【")
-		sub = strings.Split(sub[1], "】")
+		sub := strings.Split(data[i].Input, "#$%")
+		sub = strings.Split(sub[1], "%$#")
 		sub = strings.Split(sub[0], ",")
 		// 拼接参数
 		var args string
@@ -183,8 +185,8 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 			result <- string("code:3 " + e.Error())
 		}
 		// 输出获取
-		out := strings.Split(data[i].Output, "【")
-		out = strings.Split(out[1], "】")
+		out := strings.Split(data[i].Output, "#$%")
+		out = strings.Split(out[1], "%$#")
 
 		println("第 ", i+1, "次答案", string(output))
 		if string(output) == out[0] {

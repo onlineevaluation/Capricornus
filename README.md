@@ -133,47 +133,23 @@ interface Capricornus : Library {
 
 对 GoString 进行实现
 
-```java
+```kotlin
+open class GoString(str: String) : Structure() {
 
-public class GoString extends Structure {
+    lateinit var str: String
 
-    public String str;
-    public long length;
+    var length: Long = 0L
 
-    public GoString() {
-
+    override fun getFieldOrder(): MutableList<String> {
+        val files = ArrayList<String>()
+        files.add("str")
+        files.add("length")
+        return files
     }
 
-    public GoString(String str) {
-        this.str = str;
-        this.length = str.length();
-    }
+    class ByValue(str: String) : GoString(str), Structure.ByValue
 
-    @Override
-    protected List<String> getFieldOrder() {
-        List<String> files = new ArrayList<>();
-        files.add("str");
-        files.add("length");
-        return files;
-    }
-
-    public static class ByValue extends GoString implements Structure.ByValue {
-        public ByValue() {
-        }
-
-        public ByValue(String str) {
-            super(str);
-        }
-    }
-
-    public static class ByReference extends GoString implements Structure.ByReference {
-        public ByReference() {
-        }
-
-        public ByReference(String str) {
-            super(str);
-        }
-    }
+    class ByReference(str: String) : GoString(str), Structure.ByReference
 }
 
 ```
@@ -194,4 +170,3 @@ fun main() {
 ```
 
 参考：[Java调用Golang生成的动态库（dll,so）](https://studygolang.com/articles/13646)
-
