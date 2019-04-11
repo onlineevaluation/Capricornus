@@ -3,8 +3,6 @@ package main
 import (
 	"C"
 	"bytes"
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/json-iterator/go"
 	"os/exec"
 	"runtime"
@@ -48,11 +46,6 @@ type data struct {
 
 //export judgeCode
 func judgeCode(filePath, outputPath, fileName string, data string, limitTime int64) *C.char {
-	db, e := sql.Open("mysql", "root:1234@tcp(localhost:3306)/eva?charset=utf8")
-	if e != nil {
-		println("数据库错误")
-	}
-	defer db.Close()
 
 	result := make(chan string)
 	// 解析 json
@@ -98,8 +91,8 @@ func judgeCode(filePath, outputPath, fileName string, data string, limitTime int
 }
 
 func main() {
-	var filePath = "e:/testData/Add.cpp"
-	var outPath = "e:/testData"
+	var filePath = "f:/testData/Add.cpp"
+	var outPath = "f:/testData"
 	var fileName = "add"
 	// {"datas":[{"input":"【0,4%$#","output":"【4%$#"},{"input":"【1,4%$#","output":"【5%$#"},{"input":"【2,4%$#","output":"【6%$#"},{"input":"【3,4%$#","output":"【7%$#"}]}
 	judgeCode(filePath, outPath, fileName,
