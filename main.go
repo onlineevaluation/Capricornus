@@ -72,10 +72,10 @@ func judgeCode(filePath, outputPath, fileName string, data string, limitTime int
 		go runInWindows(filePath, outputPath, fileName, result, d.Datas, limitTime)
 		break
 	case "linux":
-		runInXnux()
+		go runInXnux(filePath, outputPath, fileName, result, d.Datas, limitTime)
 		break
 	case "macOs":
-		runInXnux()
+		go runInXnux(filePath, outputPath, fileName, result, d.Datas, limitTime)
 		break
 	default:
 		result <- "还不支持该系统"
@@ -91,12 +91,13 @@ func judgeCode(filePath, outputPath, fileName string, data string, limitTime int
 }
 
 func main() {
-	var filePath = "f:/testData/Add.cpp"
-	var outPath = "f:/testData"
+	var filePath = "/mnt/f/testData/Add.cpp"
+	var outPath = "/mnt/f/testData"
 	var fileName = "add"
+	// runCmdLine := outPath + "/" + fileName
 	// {"datas":[{"input":"【0,4%$#","output":"【4%$#"},{"input":"【1,4%$#","output":"【5%$#"},{"input":"【2,4%$#","output":"【6%$#"},{"input":"【3,4%$#","output":"【7%$#"}]}
 	judgeCode(filePath, outPath, fileName,
-		`{"datas":[{"input":"#$%0,4%$#","output":"#$%4%$#"},{"input":"#$%1,4%$#","output":"#$%5%$#"},{"input":"#$%2,4%$#","output":"#$%6%$#"},{"input":"#$%3,4%$#","output":"#$%7%$#"}]}`, 2)
+		`{"datas":[{"input":"#$%0,4%$#","output":"#$%4%$#"},{"input":"#$%1,4%$#","output":"#$%5%$#"},{"input":"#$%2,4%$#","output":"#$%6%$#"},{"input":"#$%3,4%$#","output":"#$%7%$#"}]}`, 5)
 }
 
 /**
@@ -106,7 +107,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 	// gcc -Wall e:/testData/Hello.cpp -o ollcode
 	// 错误检查
 	println("检查编译问题")
-	cmdLine := "gcc -pedantic " + filePath + " -o " + outputPath + "\\" + fileName + " "
+	cmdLine := "gcc -pedantic " + filePath + " -o " + outputPath + "/" + fileName + " "
 	// 这里使用 powershell ,否者无法获取错误信息
 	cmd := exec.Command("powershell", "/C ", cmdLine)
 	w := bytes.NewBuffer(nil)
@@ -118,7 +119,7 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 	}
 	println(string(w.Bytes()))
 	// 编译 c 语言文件
-	_, e := exec.Command("cmd", "/C", "gcc -g -o "+outputPath+"\\"+fileName+" "+filePath).Output()
+	_, e := exec.Command("cmd", "/C", "gcc -g -o "+outputPath+"/"+fileName+" "+filePath).Output()
 	// 异常处理
 	if e != nil { // 无法编译
 		result <- string("err:4 " + e.Error())
@@ -130,8 +131,26 @@ func runInWindows(filePath, outputPath, fileName string, result chan string, dat
 
 }
 
-func runInXnux() {
-
+func runInXnux(filePath, outputPath, fileName string, result chan string, data []data, limitTime int64) {
+	println("检查编译问题")
+	cmdLine := "gcc -pedantic " + filePath + " -o " + outputPath + "/" + fileName
+	cmd := exec.Command("/bin/bash","-c",cmdLine)
+	w := bytes.NewBuffer(nil)
+	cmd.Stderr = w
+	_ = cmd.Run()
+	if len(w.Bytes()) != 0 {
+		result <- "code:1 " + string(w.Bytes())
+	}
+	println(string(w.Bytes()))
+	// 编译 c/c++ 文件
+	_, e := exec.Command("/bin/bash", "-c", "gcc -g -o "+outputPath+"/"+fileName+" "+filePath).Output()
+	if e != nil {
+		result <- string("err:4"+ e.Error())
+	}
+	println("程序编译完成")
+	// 运行 c 语言
+	//开启协程
+	go judge(outputPath, fileName, result, data, limitTime)
 }
 
 /**
@@ -142,24 +161,51 @@ func judge(outputPath, fileName string, result chan string, data []data, limitTi
 
 	// 程序开始时间
 	start := time.Now().Unix()
-	go runCode(outputPath, fileName, result, data)
-	// 程序运行时间
-	for {
-		cur := time.Now().Unix()
-		if cur-start >= limitTime {
-			// 杀死进程
-			// windows
-			process := fileName + ".exe"
-			_ = exec.Command("cmd", "/C", "taskkill /F /IM "+process).Run()
-			result <- "code:2 运行超时"
+	// go runCode(outputPath, fileName, result, data)
+	// 判断系统
+	osName := runtime.GOOS
+	switch osName {
+	case "windows":
+		runCmdLine := outputPath + "/" + fileName
+		go runCode(outputPath, fileName, result, data,runCmdLine)
+		for {
+			cur := time.Now().Unix()
+			if cur-start >= limitTime {
+				// 杀死进程
+				// windows
+				process := fileName + ".exe"
+				_ = exec.Command("cmd", "/C", "taskkill /F /IM "+process).Run()
+				result <- "code:2 运行超时"
+			}
 		}
+		break;
+	case	"linux":
+		runCmdLine := outputPath + "/" + fileName
+		println("run line "+runCmdLine)
+		go runCode(outputPath, fileName, result, data,runCmdLine)
+		for {
+			cur := time.Now().Unix()
+			if cur-start >= limitTime {
+				// 杀死进程
+				// linux
+				process := fileName
+				_ = exec.Command("cmd", "-c", "killall "+process).Run()
+				result <- "code:2 运行超时"
+			}
+		}
+		break;
+	default:
+		result <- "not support this os"
+		break;
 	}
+	// 程序运行时间
+	
 }
 
 /*
 	代码运行
 */
-func runCode(outputPath, fileName string, result chan string, data []data) {
+func runCode(outputPath, fileName string, result chan string, data []data,runCmdLine string) {
 	println("程序准备运行")
 	var flag = 0
 	for i := 0; i < len(data); i++ {
@@ -171,7 +217,7 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 		for i := 0; i < len(sub); i++ {
 			args += sub[i] + " "
 		}
-		cmd := exec.Command(outputPath + "/" + fileName)
+		cmd := exec.Command(runCmdLine)
 		cmd.Stdin = strings.NewReader(args)
 		output, e := cmd.Output()
 		if e != nil {
@@ -193,5 +239,4 @@ func runCode(outputPath, fileName string, result chan string, data []data) {
 	} else {
 		result <- string("code:3 运行出错")
 	}
-
 }
